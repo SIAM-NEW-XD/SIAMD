@@ -1,40 +1,39 @@
 import os
+from flask import Flask, request, jsonify
+from flask_cors import CORS  # 👈 এই লাইনটি নতুন যোগ হয়েছে
 from yt_dlp import YoutubeDL
 
-def download_tiktok_video(video_url, output_dir):
-    # ফোল্ডারটি না থাকলে তৈরি করে নেবে
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        
-    # ডাউনলোডের কনফিগারেশন (এখানে ফাইলের নাম 'tiktok_' দিয়ে শুরু হবে)
+app = Flask(__name__)
+CORS(app)  # 👈 এই লাইনটি আপনার CORS সমস্যা ১০০% ফিক্স করে দেবে
+
+@app.route('/download', methods=['GET'])
+def download_tiktok():
+    video_url = request.args.get('url')
+    if not video_url:
+        return jsonify({"error": "URL missing"}), 400
+
     ydl_opts = {
-        'outtmpl': os.path.join(output_dir, 'tiktok_%(id)s.%(ext)s'),
         'format': 'best',
+        'noplaylist': True,
     }
     
     try:
         with YoutubeDL(ydl_opts) as ydl:
-            # ভিডিও ডাউনলোড
-            print("Downloading...")
-            ydl.download([video_url])
-            
-            # মেটাডেটা বা তথ্য নেওয়া
             info_dict = ydl.extract_info(video_url, download=False)
-            print("\n--- Video Metadata ---")
-            print("Title:", info_dict.get('title'))
-            print("Uploader:", info_dict.get('uploader'))
-            print("View Count:", info_dict.get('view_count'))
+            
+            video_download_url = info_dict.get('url') 
+            title = info_dict.get('title', 'TikTok Video')
+            uploader = info_dict.get('uploader', 'Unknown')
+            
+            return jsonify({
+                "status": "success",
+                "download_url": video_download_url,
+                "title": title,
+                "uploader": uploader
+            })
             
     except Exception as e:
-        print("Error হয়েছ:", str(e))
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-# ব্যবহার করার নিয়ম
 if __name__ == "__main__":
-	
-    # আপনার আসল টিকটক ভিডিওর লিংক এখানে দিন
-    tiktok_url = "https://vm.tiktok.com/ZS92gyt7u87s2-HspX6/ This post is shared via TikTok Lite. Download TikTok Lite to enjoy more posts: https://www.tiktok.com/tiktoklite"
-    
-    # আপনার কম্পিউটারের একটি আসল ফোল্ডারের নাম দিন (যেমন: 'downloads')
-    download_directory = "tiktok_downloads" 
-    
-    download_tiktok_video(tiktok_url, download_directory)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
